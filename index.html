@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meus livros">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Meus livros</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%231f3a5f'/%3E%3Crect x='42' y='36' width='28' height='108' fill='%23e8c26a'/%3E%3Crect x='76' y='36' width='28' height='108' fill='%23f4f1ec'/%3E%3Crect x='110' y='46' width='28' height='98' fill='%23c8553d'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f4f5f3; --surface:#ffffff; --ink:#1b2733; --muted:#66727d; --line:#dde1dd;
+  --accent:#1f3a5f; --on-accent:#ffffff; --have:#2c7a4b; --danger:#b3412e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12181e; --surface:#1b242c; --ink:#e9edf0; --muted:#93a0ab; --line:#2b3640;
+    --accent:#8fb0e0; --on-accent:#10202f; --have:#6fcf97; --danger:#ef8a76;
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:640px;margin:0 auto}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:14px 16px 10px;z-index:5}
+h1{font:600 28px/1.1 ui-serif,"New York",Georgia,serif;margin:0 0 10px}
+.search{width:100%;padding:12px 14px;font-size:17px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
+.search:focus,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.status{margin:10px 16px 0;padding:10px 12px;border-radius:10px;font-weight:600;background:var(--surface);border:1px solid var(--line)}
+.status.yes{color:var(--have);border-color:var(--have);border-width:2px}
+.status.no{color:var(--danger);border-color:var(--danger);border-width:2px}
+.dup{margin-top:10px;font-weight:600;font-size:14px}
+.dup.yes{color:var(--have)}.dup.no{color:var(--danger)}
+.count{margin:6px 16px 0;color:var(--muted);font-size:14px}
+ul{list-style:none;margin:8px 0 120px;padding:0 16px}
+li{display:flex;gap:12px;padding:12px;margin-bottom:8px;border:2px solid var(--line);border-radius:12px;background:var(--surface);align-items:center}
+li.have{border-color:var(--have)}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--have);flex:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--have) 25%,transparent)}
+.spine{width:6px;align-self:stretch;border-radius:3px;flex:none}
+.cover{width:44px;height:64px;border-radius:3px;object-fit:cover;background:var(--line);flex:none}
+.info{flex:1;min-width:0}
+.t{font:600 17px/1.25 ui-serif,"New York",Georgia,serif}
+.a{color:var(--muted);font-size:14px}
+.loc{display:inline-block;margin-top:4px;font-size:13px;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:1px 10px}
+.empty{padding:40px 16px;color:var(--muted);text-align:center}
+.fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:16px 22px;font-size:17px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.foot{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:8px}
+.foot button{background:var(--surface);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:10px 14px;font-size:14px}
+dialog{border:0;border-radius:18px;padding:18px;width:min(92vw,520px);background:var(--surface);color:var(--ink);max-height:90vh;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{font:600 22px ui-serif,Georgia,serif;margin:0 0 12px}
+label{display:block;font-size:14px;color:var(--muted);margin:12px 0 4px}
+select.f,input.f{width:100%;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:8px}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:11px 14px;font-size:16px}
+.btn.p{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.btn.d{color:var(--danger)}
+.actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+#reader{width:100%;margin-top:10px;border-radius:12px;overflow:hidden}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:50;max-width:90vw}
+.msg{margin-top:10px;font-size:14px;color:var(--muted)}
+.preview{display:flex;gap:12px;align-items:center;margin-top:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Meus livros</h1>
+  <input id="q" class="search" type="search" placeholder="Digite o título ou autor para conferir" autocomplete="off">
+</header>
+<div id="status"></div>
+<div class="count" id="count"></div>
+<ul id="list"></ul>
+
+<div class="foot">
+  <button id="exp">Exportar backup</button>
+  <button id="imp">Importar</button>
+  <input id="file" type="file" accept="application/json" hidden>
+</div>
+<button class="fab" id="add">Adicionar livro</button>
+
+<dialog id="dlg">
+  <h2 id="dtitle">Adicionar livro</h2>
+  <div id="scanBox">
+    <button class="btn p" id="scan" style="width:100%">Escanear código de barras</button>
+    <div id="reader" hidden></div>
+    <label for="isbn">ou digite o ISBN</label>
+    <div class="row"><input id="isbn" class="f" inputmode="numeric" placeholder="978..."><button class="btn" id="find">Buscar</button></div>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="preview" id="preview"></div>
+  <label for="title">Título</label><input id="title" class="f">
+  <label for="author">Autor</label><input id="author" class="f">
+  <div class="dup" id="dup"></div>
+  <label for="level">Andar da prateleira (de cima para baixo)</label>
+  <select id="level" class="f"></select>
+  <label for="block">Bloco (contando da esquerda para a direita)</label>
+  <select id="block" class="f"></select>
+  <div class="actions">
+    <button class="btn d" id="del" hidden>Excluir</button>
+    <button class="btn" id="cancel">Cancelar</button>
+    <button class="btn p" id="save">Salvar</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+const KEY = "meus-livros-v1";
+let books = [];
+let editing = null;   // id do livro em edição
+let draft = {};       // dados do livro em preparo
+let scanner = null;
+const SHELF = [4, 6, 4, 6];   // blocos por andar, de cima para baixo
+
+const $ = id => document.getElementById(id);
+const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+let toastT;
+function toast(t){ const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 3500); }
+function load(){ try{ books = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ books = []; } }
+function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(books)); }catch(e){ toast("Não foi possível salvar. Exporte um backup."); } }
+
+function hue(str){ let h = 0; for (const c of str) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+function esc(s){ return (s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  const q = norm($("q").value.trim());
+  const sorted = [...books].sort((a,b) => norm(a.title).localeCompare(norm(b.title)));
+  const words = q.split(/\s+/).filter(Boolean);
+  const shown = q ? sorted.filter(b => { const t = norm(b.title + " " + b.author); return words.every(w => t.includes(w)); }) : sorted;
+  $("count").textContent = books.length ? `${books.length} livro${books.length>1?"s":""} no acervo` : "";
+  const st = $("status");
+  if (q && shown.length) { st.className = "status yes"; st.textContent = "✓ Você JÁ TEM este livro (" + shown.length + " resultado" + (shown.length>1?"s":"") + ")"; }
+  else if (q) { st.className = "status no"; st.textContent = "✗ Você NÃO tem este livro no acervo."; }
+  else { st.className = ""; st.textContent = ""; }
+  $("list").innerHTML = shown.length ? shown.map(b => `
+    <li data-id="${b.id}" class="${q ? "have" : ""}">
+      ${q ? '<span class="dot" title="Você tem"></span>' : ""}
+      <span class="spine" style="background:hsl(${hue(b.title)} 45% 45%)"></span>
+      ${b.cover ? `<img class="cover" src="${esc(b.cover)}" alt="" loading="lazy">` : ""}
+      <div class="info"><div class="t">${esc(b.title)}</div><div class="a">${esc(b.author)}</div>
+      ${b.level ? `<span class="loc">${b.level}º andar${b.block ? " · bloco " + esc(String(b.block)) : ""}</span>` : ""}</div>
+    </li>`).join("")
+    : `<div class="empty">${books.length ? "" : "Seu acervo está vazio. Toque em Adicionar livro e escaneie o código de barras."}</div>`;
+}
+
+async function stopScan(){
+  if (scanner) { try{ await scanner.stop(); }catch(e){} try{ scanner.clear(); }catch(e){} scanner = null; }
+  $("reader").hidden = true;
+}
+
+function openDialog(book){
+  resetDel();
+  editing = book ? book.id : null;
+  draft = book ? {...book} : {};
+  $("dtitle").textContent = book ? "Editar livro" : "Adicionar livro";
+  $("scanBox").hidden = !!book;
+  $("del").hidden = !book;
+  $("msg").textContent = "";
+  $("isbn").value = draft.isbn || "";
+  $("title").value = draft.title || "";
+  $("author").value = draft.author || "";
+  $("level").value = draft.level || "";
+  fillBlocks(draft.block);
+  checkDup();
+  showPreview();
+  $("dlg").showModal();
+}
+function fillBlocks(sel){
+  const n = SHELF[$("level").value - 1] || 0;
+  $("block").innerHTML = n
+    ? '<option value="">Escolha o bloco</option>' + Array.from({length: n}, (_, i) => `<option value="${i+1}">Bloco ${i+1}${i === 0 ? " (mais à esquerda)" : i === n-1 ? " (mais à direita)" : ""}</option>`).join("")
+    : '<option value="">Escolha o andar primeiro</option>';
+  if (sel) $("block").value = String(sel);
+}
+function checkDup(){
+  const w = norm($("title").value.trim()).split(/\s+/).filter(Boolean);
+  const el = $("dup");
+  if (w.join("").length < 3) { el.className = "dup"; el.textContent = ""; return; }
+  const f = books.find(b => b.id !== editing && w.every(x => norm(b.title + " " + b.author).includes(x)));
+  if (f) { el.className = "dup yes"; el.textContent = "✓ Você já tem: " + f.title + (f.level ? " (" + f.level + "º andar" + (f.block ? ", bloco " + f.block : "") + ")" : ""); }
+  else { el.className = "dup no"; el.textContent = "✗ Não está no acervo ainda."; }
+}
+function showPreview(){
+  $("preview").innerHTML = draft.cover ? `<img class="cover" src="${esc(draft.cover)}" alt="Capa">` : "";
+}
+
+async function lookup(isbn){
+  isbn = (isbn || "").replace(/[^0-9Xx]/g, "");
+  if (!isbn) return;
+  $("isbn").value = isbn;
+  $("msg").textContent = "Buscando " + isbn + "...";
+  const dup = books.find(b => b.isbn === isbn);
+  try{
+    const r = await fetch("https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn);
+    const j = await r.json();
+    const v = j.items && j.items[0] && j.items[0].volumeInfo;
+    if (!v) { $("msg").textContent = "Não achei esse ISBN. Preencha o título e o autor à mão."; draft.isbn = isbn; return; }
+    draft.isbn = isbn;
+    draft.title = v.title + (v.subtitle ? ": " + v.subtitle : "");
+    draft.author = (v.authors || []).join(", ");
+    draft.cover = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || "").replace("http://", "https://") : "";
+    $("title").value = draft.title; $("author").value = draft.author; checkDup();
+    showPreview();
+    $("msg").textContent = dup ? "Atenção: este livro já está no seu acervo (" + (dup.level ? dup.level + "º andar" + (dup.block ? ", bloco " + dup.block : "") : "sem local") + ")." : "Encontrado. Informe onde ele está e salve.";
+  }catch(e){ $("msg").textContent = "Sem conexão com a busca. Preencha o título à mão."; draft.isbn = isbn; }
+}
+
+async function startScan(){
+  if (typeof Html5Qrcode === "undefined") { $("msg").textContent = "Leitor de código não carregou. Digite o ISBN."; return; }
+  $("reader").hidden = false;
+  scanner = new Html5Qrcode("reader");
+  try{
+    await scanner.start({ facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 120 }, formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13] },
+      async text => { await stopScan(); lookup(text); }, () => {});
+  }catch(e){ $("reader").hidden = true; scanner = null; $("msg").textContent = "Não consegui abrir a câmera. Permita o acesso ou digite o ISBN."; }
+}
+
+$("add").onclick = () => openDialog(null);
+$("scan").onclick = startScan;
+$("find").onclick = () => lookup($("isbn").value);
+$("isbn").addEventListener("keydown", e => { if (e.key === "Enter") lookup($("isbn").value); });
+$("cancel").onclick = () => $("dlg").close();
+$("dlg").addEventListener("close", stopScan);
+$("save").onclick = () => {
+  const title = $("title").value.trim();
+  if (!title) { $("msg").textContent = "Informe o título."; return; }
+  if (!$("level").value) { $("msg").textContent = "Escolha o andar da prateleira."; return; }
+  if (!$("block").value) { $("msg").textContent = "Escolha o bloco."; return; }
+  const data = { ...draft, title, author: $("author").value.trim(), level: $("level").value, block: $("block").value };
+  delete data.where; delete data.side;
+  if (editing) books = books.map(b => b.id === editing ? { ...b, ...data } : b);
+  else books.push({ ...data, id: Date.now().toString(36) });
+  persist(); render(); $("dlg").close();
+};
+let delArmed = false, delT;
+function resetDel(){ delArmed = false; clearTimeout(delT); $("del").textContent = "Excluir"; }
+$("del").onclick = () => {
+  if (!delArmed) { delArmed = true; $("del").textContent = "Toque de novo para excluir"; delT = setTimeout(resetDel, 4000); return; }
+  books = books.filter(b => b.id !== editing);
+  persist(); render(); resetDel(); $("dlg").close(); toast("Livro excluído.");
+};
+$("list").onclick = e => { const li = e.target.closest("li"); if (li) openDialog(books.find(b => b.id === li.dataset.id)); };
+$("q").addEventListener("input", render);
+$("title").addEventListener("input", checkDup);
+$("level").innerHTML = '<option value="">Escolha o andar</option>' + Array.from({length: SHELF.length}, (_, i) => `<option value="${i+1}">${i+1}º andar${i ? "" : " (topo)"}</option>`).join("");
+$("level").onchange = () => fillBlocks();
+
+$("exp").onclick = () => {
+  const blob = new Blob([JSON.stringify(books, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "meus-livros-backup.json"; a.click();
+};
+$("imp").onclick = () => $("file").click();
+$("file").onchange = async e => {
+  try{
+    const data = JSON.parse(await e.target.files[0].text());
+    if (!Array.isArray(data)) throw 0;
+    const ids = new Set(books.map(b => b.id));
+    const novos = data.filter(b => b && b.title && !ids.has(b.id));
+    books = books.concat(novos); persist(); render();
+    toast(novos.length + " livro(s) importado(s).");
+  }catch(err){ toast("Arquivo de backup inválido."); }
+  e.target.value = "";
+};
+
+load(); render();
+</script>
+</body>
+</html>
