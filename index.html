@@ -222,6 +222,7 @@ function openBlock(l, k){
 }
 
 async function stopScan(){
+  clearTimeout(scanTimer);
   if (scanner) { try{ await scanner.stop(); }catch(e){} try{ scanner.clear(); }catch(e){} scanner = null; }
   $("reader").hidden = true;
 }
@@ -272,36 +273,82 @@ function showPreview(){
   $("preview").innerHTML = draft.cover ? `<img class="cover" src="${esc(draft.cover)}" alt="Capa">` : "";
 }
 
+function validIsbn13(c){
+  if (!/^97[89]\d{10}$/.test(c)) return false;
+  let t = 0; for (let k = 0; k < 12; k++) t += (+c[k]) * (k % 2 ? 3 : 1);
+  return (10 - t % 10) % 10 === +c[12];
+}
+function toIsbn13(x){
+  if (x.length !== 10) return x;
+  const b = "978" + x.slice(0, 9); let t = 0;
+  for (let k = 0; k < 12; k++) t += (+b[k]) * (k % 2 ? 3 : 1);
+  return b + ((10 - t % 10) % 10);
+}
+async function fetchJson(url, ms = 7000){
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try{ const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
+const SOURCES = [
+  async i => { const j = await fetchJson("https://brasilapi.com.br/api/isbn/v1/" + i);
+    return j && j.title ? { title: j.title + (j.subtitle ? ": " + j.subtitle : ""), author: (j.authors || []).join(", "), cover: j.cover_url || "" } : null; },
+  async i => { const j = await fetchJson("https://www.googleapis.com/books/v1/volumes?q=isbn:" + i);
+    const v = j.items && j.items[0] && j.items[0].volumeInfo;
+    return v ? { title: v.title + (v.subtitle ? ": " + v.subtitle : ""), author: (v.authors || []).join(", "),
+      cover: v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || "") : "" } : null; },
+  async i => { const j = await fetchJson("https://openlibrary.org/api/books?bibkeys=ISBN:" + i + "&format=json&jscmd=data");
+    const v = j["ISBN:" + i];
+    return v ? { title: v.title + (v.subtitle ? ": " + v.subtitle : ""), author: (v.authors || []).map(a => a.name).join(", "),
+      cover: v.cover ? (v.cover.medium || v.cover.small || "") : "" } : null; }
+];
+
 async function lookup(isbn){
-  isbn = (isbn || "").replace(/[^0-9Xx]/g, "");
+  isbn = toIsbn13((isbn || "").replace(/[^0-9Xx]/g, ""));
   if (!isbn) return;
   $("isbn").value = isbn;
+  draft.isbn = isbn;
   $("msg").textContent = "Buscando " + isbn + "...";
   const dup = books.find(b => b.isbn === isbn);
-  try{
-    const r = await fetch("https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn);
-    const j = await r.json();
-    const v = j.items && j.items[0] && j.items[0].volumeInfo;
-    if (!v) { $("msg").textContent = "Não achei esse ISBN. Preencha o título e o autor à mão."; draft.isbn = isbn; return; }
-    draft.isbn = isbn;
-    draft.title = v.title + (v.subtitle ? ": " + v.subtitle : "");
-    draft.author = (v.authors || []).join(", ");
-    draft.cover = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || "").replace("http://", "https://") : "";
-    $("title").value = draft.title; $("author").value = draft.author; checkDup();
-    showPreview();
-    $("msg").textContent = dup ? "Atenção: este livro já está no seu acervo (" + (place(dup)) + ")." : "Encontrado. Informe onde ele está e salve.";
-  }catch(e){ $("msg").textContent = "Sem conexão com a busca. Preencha o título à mão."; draft.isbn = isbn; }
+  let found = null, failed = 0;
+  for (const src of SOURCES) {
+    try{ found = await src(isbn); if (found) break; }catch(e){ failed++; }
+  }
+  if (!found) {
+    $("msg").textContent = failed === SOURCES.length ? "Sem conexão com a busca. Preencha o título à mão." : "Não achei esse ISBN nas bases de dados. Preencha o título e o autor à mão.";
+    return;
+  }
+  draft.title = found.title; draft.author = found.author;
+  draft.cover = (found.cover || "").replace("http://", "https://");
+  $("title").value = draft.title; $("author").value = draft.author; checkDup();
+  showPreview();
+  $("msg").textContent = dup ? "Atenção: este livro já está no seu acervo (" + place(dup) + ")." : "Encontrado. Escolha o formato e salve.";
 }
 
+let scanTimer;
 async function startScan(){
   if (typeof Html5Qrcode === "undefined") { $("msg").textContent = "Leitor de código não carregou. Digite o ISBN."; return; }
   $("reader").hidden = false;
-  scanner = new Html5Qrcode("reader");
+  $("msg").textContent = "Centralize o código de barras de 13 dígitos (começa com 978) na faixa. Afaste uns 15 a 20 cm e use boa luz.";
+  scanner = new Html5Qrcode("reader", {
+    formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13],
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+    verbose: false
+  });
+  const onRead = async text => {
+    if (!validIsbn13(text)) return;            // ignora leituras erradas e códigos que não são ISBN
+    await stopScan(); lookup(text);
+  };
+  const base = { fps: 15, disableFlip: true,
+    qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.floor(Math.min(h * 0.45, 170)) }) };
   try{
-    await scanner.start({ facingMode: "environment" },
-      { fps: 10, qrbox: { width: 260, height: 120 }, formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13] },
-      async text => { await stopScan(); lookup(text); }, () => {});
-  }catch(e){ $("reader").hidden = true; scanner = null; $("msg").textContent = "Não consegui abrir a câmera. Permita o acesso ou digite o ISBN."; }
+    try{
+      await scanner.start({ facingMode: "environment" },
+        { ...base, videoConstraints: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } }, onRead, () => {});
+    }catch(e1){
+      await scanner.start({ facingMode: "environment" }, base, onRead, () => {});
+    }
+    scanTimer = setTimeout(() => { $("msg").textContent = "Não está lendo? Tente mudar a distância ou o ângulo, evite reflexo na capa, ou digite o ISBN abaixo."; }, 20000);
+  }catch(e){ $("reader").hidden = true; scanner = null; $("msg").textContent = "Não consegui abrir a câmera. Permita o acesso nos Ajustes do iPhone ou digite o ISBN."; }
 }
 
 $("add").onclick = () => openDialog(null);
