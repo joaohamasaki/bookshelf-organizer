@@ -12,13 +12,13 @@
 <style>
 :root{
   --bg:#f4f5f3; --surface:#ffffff; --ink:#1b2733; --muted:#66727d; --line:#dde1dd;
-  --accent:#1f3a5f; --on-accent:#ffffff; --have:#2c7a4b; --danger:#b3412e;
+  --accent:#1f3a5f; --on-accent:#ffffff; --have:#2c7a4b; --danger:#b3412e; --plank:#a9824f;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#12181e; --surface:#1b242c; --ink:#e9edf0; --muted:#93a0ab; --line:#2b3640;
-    --accent:#8fb0e0; --on-accent:#10202f; --have:#6fcf97; --danger:#ef8a76;
+    --accent:#8fb0e0; --on-accent:#10202f; --have:#6fcf97; --danger:#ef8a76; --plank:#6b5136;
     color-scheme: dark;
   }
 }
@@ -71,6 +71,17 @@ textarea.f{font-family:inherit;resize:vertical}
 .loc.k{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
 .loc.rd{margin-left:6px;color:var(--have);border-color:var(--have)}
 .note{margin-top:6px;font-size:14px;color:var(--muted);font-style:italic}
+.tabs{margin-top:10px}
+#shelf{margin:10px 16px 120px}
+.lvl{display:flex;align-items:flex-end;gap:6px;margin-bottom:10px}
+.lv{width:22px;flex:none;text-align:center;font-size:13px;color:var(--muted);padding-bottom:2px}
+.blks{flex:1;min-width:0;display:flex;gap:4px;border-bottom:9px solid var(--plank);border-radius:0 0 3px 3px}
+.blk{flex:1;min-width:0;height:92px;background:var(--surface);color:var(--ink);font:inherit;border:2px solid var(--line);border-bottom:0;border-radius:6px 6px 0 0;display:flex;align-items:flex-end;justify-content:center;gap:2px;padding:0 3px;overflow:hidden;position:relative;cursor:pointer}
+.sp{width:7px;flex:none;border-radius:1px 1px 0 0}
+.cnt{position:absolute;top:3px;right:6px;font-size:12px;color:var(--muted)}
+.plus{align-self:center;font-size:26px;color:var(--line)}
+.blk.hit{border-color:var(--have);box-shadow:0 0 0 3px color-mix(in srgb,var(--have) 30%,transparent)}
+.blk.dim{opacity:.4}
 .msg{margin-top:10px;font-size:14px;color:var(--muted)}
 .preview{display:flex;gap:12px;align-items:center;margin-top:12px}
 </style>
@@ -79,9 +90,11 @@ textarea.f{font-family:inherit;resize:vertical}
 <header>
   <h1>Meus livros</h1>
   <input id="q" class="search" type="search" placeholder="Digite o título ou autor para conferir" autocomplete="off">
+  <div class="seg tabs" id="tabs"><button class="btn on" data-v="lista">Lista</button><button class="btn" data-v="estante">Estante</button></div>
 </header>
 <div id="status"></div>
 <div class="count" id="count"></div>
+<div id="shelf" hidden></div>
 <ul id="list"></ul>
 
 <div class="foot">
@@ -124,6 +137,11 @@ textarea.f{font-family:inherit;resize:vertical}
   </div>
 </dialog>
 
+<dialog id="bdlg">
+  <h2 id="bt"></h2>
+  <ul id="bl" style="margin:0;padding:0"></ul>
+  <div class="actions"><button class="btn" id="bclose">Fechar</button><button class="btn p" id="badd">Adicionar livro aqui</button></div>
+</dialog>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
@@ -169,6 +187,38 @@ function render(){
       ${b.read && b.note ? `<div class="note">${esc(b.note)}</div>` : ""}</div>
     </li>`).join("")
     : `<div class="empty">${books.length ? "" : "Seu acervo está vazio. Toque em Adicionar livro e escaneie o código de barras."}</div>`;
+  syncView(shown, q);
+}
+
+let view = "lista", curBlk = null;
+const inBlock = (l, k) => books.filter(b => b.format !== "kindle" && String(b.level) === String(l) && String(b.block) === String(k));
+function syncView(shown, q){
+  $("list").hidden = view !== "lista";
+  $("shelf").hidden = view !== "estante";
+  if (view !== "estante") return;
+  const hits = new Set(q ? shown.map(b => b.id) : []);
+  let h = "";
+  SHELF.forEach((n, i) => {
+    const lvl = i + 1; let blks = "";
+    for (let k = 1; k <= n; k++) {
+      const bs = inBlock(lvl, k);
+      const hit = q && bs.some(b => hits.has(b.id));
+      const sp = bs.slice(0, 8).map(b => `<span class="sp" style="height:${45 + hue(b.title) % 40}%;background:hsl(${hue(b.title)} 45% 45%)"></span>`).join("");
+      blks += `<button class="blk ${hit ? "hit" : ""} ${q && !hit ? "dim" : ""}" data-l="${lvl}" data-b="${k}" aria-label="${lvl}º andar, bloco ${k}, ${bs.length} livros">${bs.length ? `<span class="cnt">${bs.length}</span>` : '<span class="plus">+</span>'}${sp}</button>`;
+    }
+    h += `<div class="lvl"><div class="lv">${lvl}º</div><div class="blks">${blks}</div></div>`;
+  });
+  const kc = books.filter(b => b.format === "kindle").length;
+  h += `<div class="count" style="margin:10px 0 0">${kc} livro${kc === 1 ? "" : "s"} no Kindle (veja na aba Lista)</div>`;
+  $("shelf").innerHTML = h;
+}
+function openBlock(l, k){
+  curBlk = { l, k };
+  const bs = inBlock(l, k);
+  $("bt").textContent = l + "º andar · bloco " + k;
+  $("bl").innerHTML = bs.length ? bs.map(b => `<li data-id="${b.id}"><span class="spine" style="background:hsl(${hue(b.title)} 45% 45%)"></span><div class="info"><div class="t">${esc(b.title)}</div><div class="a">${esc(b.author)}</div>${b.read ? '<span class="loc rd" style="margin-left:0">Lido</span>' : ""}</div></li>`).join("")
+    : '<div class="empty" style="padding:16px">Nenhum livro neste bloco ainda.</div>';
+  $("bdlg").showModal();
 }
 
 async function stopScan(){
@@ -176,10 +226,10 @@ async function stopScan(){
   $("reader").hidden = true;
 }
 
-function openDialog(book){
+function openDialog(book, preset){
   resetDel();
   editing = book ? book.id : null;
-  draft = book ? {...book} : {};
+  draft = book ? {...book} : (preset ? { format: "fisico", level: String(preset.l), block: String(preset.k) } : {});
   $("dtitle").textContent = book ? "Editar livro" : "Adicionar livro";
   $("scanBox").hidden = !!book;
   $("del").hidden = !book;
@@ -286,6 +336,16 @@ $("q").addEventListener("input", render);
 $("title").addEventListener("input", checkDup);
 $("level").innerHTML = '<option value="">Escolha o andar</option>' + Array.from({length: SHELF.length}, (_, i) => `<option value="${i+1}">${i+1}º andar${i ? "" : " (topo)"}</option>`).join("");
 $("level").onchange = () => fillBlocks();
+$("tabs").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  view = b.dataset.v;
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  render();
+};
+$("shelf").onclick = e => { const b = e.target.closest(".blk"); if (b) openBlock(+b.dataset.l, +b.dataset.b); };
+$("bl").onclick = e => { const li = e.target.closest("li"); if (li) { $("bdlg").close(); openDialog(books.find(b => b.id === li.dataset.id)); } };
+$("badd").onclick = () => { $("bdlg").close(); openDialog(null, curBlk); };
+$("bclose").onclick = () => $("bdlg").close();
 $("fmt").onclick = e => { const b = e.target.closest("button"); if (b) setFmt(b.dataset.f); };
 $("read").onchange = () => { $("noteBox").hidden = !$("read").checked; };
 
