@@ -55,7 +55,7 @@ dialog{border:0;border-radius:18px;padding:18px;width:min(92vw,520px);background
 dialog::backdrop{background:rgba(0,0,0,.5)}
 dialog h2{font:600 22px ui-serif,Georgia,serif;margin:0 0 12px}
 label{display:block;font-size:14px;color:var(--muted);margin:12px 0 4px}
-select.f,input.f{width:100%;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea.f,select.f,input.f{width:100%;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
 .row{display:flex;gap:8px}
 .btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:11px 14px;font-size:16px}
 .btn.p{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
@@ -63,6 +63,14 @@ select.f,input.f{width:100%;padding:11px 12px;font-size:16px;border:1px solid va
 .actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
 #reader{width:100%;margin-top:10px;border-radius:12px;overflow:hidden}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:50;max-width:90vw}
+.seg{display:flex;gap:8px}.seg .btn{flex:1}
+.seg .btn.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.chk{display:flex;align-items:center;gap:10px;color:var(--ink);font-size:16px;margin-top:16px}
+.chk input{width:22px;height:22px;accent-color:var(--accent)}
+textarea.f{font-family:inherit;resize:vertical}
+.loc.k{color:var(--on-accent);background:var(--accent);border-color:var(--accent)}
+.loc.rd{margin-left:6px;color:var(--have);border-color:var(--have)}
+.note{margin-top:6px;font-size:14px;color:var(--muted);font-style:italic}
 .msg{margin-top:10px;font-size:14px;color:var(--muted)}
 .preview{display:flex;gap:12px;align-items:center;margin-top:12px}
 </style>
@@ -96,10 +104,19 @@ select.f,input.f{width:100%;padding:11px 12px;font-size:16px;border:1px solid va
   <label for="title">Título</label><input id="title" class="f">
   <label for="author">Autor</label><input id="author" class="f">
   <div class="dup" id="dup"></div>
-  <label for="level">Andar da prateleira (de cima para baixo)</label>
-  <select id="level" class="f"></select>
-  <label for="block">Bloco (contando da esquerda para a direita)</label>
-  <select id="block" class="f"></select>
+  <label>Formato</label>
+  <div class="seg" id="fmt"><button type="button" class="btn" data-f="fisico">Livro físico</button><button type="button" class="btn" data-f="kindle">Kindle</button></div>
+  <div id="shelfBox">
+    <label for="level">Andar da prateleira (de cima para baixo)</label>
+    <select id="level" class="f"></select>
+    <label for="block">Bloco (contando da esquerda para a direita)</label>
+    <select id="block" class="f"></select>
+  </div>
+  <label class="chk"><input type="checkbox" id="read"> Já li este livro</label>
+  <div id="noteBox" hidden>
+    <label for="note">Comentário sobre o livro</label>
+    <textarea id="note" class="f" rows="3" placeholder="O que você achou? Algo para lembrar?"></textarea>
+  </div>
   <div class="actions">
     <button class="btn d" id="del" hidden>Excluir</button>
     <button class="btn" id="cancel">Cancelar</button>
@@ -126,6 +143,10 @@ function load(){ try{ books = JSON.parse(localStorage.getItem(KEY)) || []; }catc
 function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(books)); }catch(e){ toast("Não foi possível salvar. Exporte um backup."); } }
 
 function hue(str){ let h = 0; for (const c of str) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+function place(b){
+  if (b.format === "kindle") return "Kindle";
+  return "Estante" + (b.level ? " · " + b.level + "º andar" + (b.block ? " · bloco " + b.block : "") : "");
+}
 function esc(s){ return (s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 function render(){
@@ -135,7 +156,7 @@ function render(){
   const shown = q ? sorted.filter(b => { const t = norm(b.title + " " + b.author); return words.every(w => t.includes(w)); }) : sorted;
   $("count").textContent = books.length ? `${books.length} livro${books.length>1?"s":""} no acervo` : "";
   const st = $("status");
-  if (q && shown.length) { st.className = "status yes"; st.textContent = "✓ Você JÁ TEM este livro (" + shown.length + " resultado" + (shown.length>1?"s":"") + ")"; }
+  if (q && shown.length) { st.className = "status yes"; st.textContent = "✓ Você JÁ TEM este livro — " + [...new Set(shown.map(b => b.format === "kindle" ? "no Kindle" : "na estante"))].join(" e ") + "."; }
   else if (q) { st.className = "status no"; st.textContent = "✗ Você NÃO tem este livro no acervo."; }
   else { st.className = ""; st.textContent = ""; }
   $("list").innerHTML = shown.length ? shown.map(b => `
@@ -144,7 +165,8 @@ function render(){
       <span class="spine" style="background:hsl(${hue(b.title)} 45% 45%)"></span>
       ${b.cover ? `<img class="cover" src="${esc(b.cover)}" alt="" loading="lazy">` : ""}
       <div class="info"><div class="t">${esc(b.title)}</div><div class="a">${esc(b.author)}</div>
-      ${b.level ? `<span class="loc">${b.level}º andar${b.block ? " · bloco " + esc(String(b.block)) : ""}</span>` : ""}</div>
+      <span class="loc ${b.format === "kindle" ? "k" : ""}">${esc(place(b))}</span>${b.read ? '<span class="loc rd">Lido</span>' : ""}
+      ${b.read && b.note ? `<div class="note">${esc(b.note)}</div>` : ""}</div>
     </li>`).join("")
     : `<div class="empty">${books.length ? "" : "Seu acervo está vazio. Toque em Adicionar livro e escaneie o código de barras."}</div>`;
 }
@@ -167,9 +189,19 @@ function openDialog(book){
   $("author").value = draft.author || "";
   $("level").value = draft.level || "";
   fillBlocks(draft.block);
+  setFmt(draft.format || "fisico");
+  $("read").checked = !!draft.read;
+  $("note").value = draft.note || "";
+  $("noteBox").hidden = !draft.read;
   checkDup();
   showPreview();
   $("dlg").showModal();
+}
+let fmt = "fisico";
+function setFmt(f){
+  fmt = f;
+  document.querySelectorAll("#fmt button").forEach(b => b.classList.toggle("on", b.dataset.f === f));
+  $("shelfBox").hidden = f === "kindle";
 }
 function fillBlocks(sel){
   const n = SHELF[$("level").value - 1] || 0;
@@ -183,7 +215,7 @@ function checkDup(){
   const el = $("dup");
   if (w.join("").length < 3) { el.className = "dup"; el.textContent = ""; return; }
   const f = books.find(b => b.id !== editing && w.every(x => norm(b.title + " " + b.author).includes(x)));
-  if (f) { el.className = "dup yes"; el.textContent = "✓ Você já tem: " + f.title + (f.level ? " (" + f.level + "º andar" + (f.block ? ", bloco " + f.block : "") + ")" : ""); }
+  if (f) { el.className = "dup yes"; el.textContent = "✓ Você já tem: " + f.title + " (" + place(f) + ")"; }
   else { el.className = "dup no"; el.textContent = "✗ Não está no acervo ainda."; }
 }
 function showPreview(){
@@ -207,7 +239,7 @@ async function lookup(isbn){
     draft.cover = v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || "").replace("http://", "https://") : "";
     $("title").value = draft.title; $("author").value = draft.author; checkDup();
     showPreview();
-    $("msg").textContent = dup ? "Atenção: este livro já está no seu acervo (" + (dup.level ? dup.level + "º andar" + (dup.block ? ", bloco " + dup.block : "") : "sem local") + ")." : "Encontrado. Informe onde ele está e salve.";
+    $("msg").textContent = dup ? "Atenção: este livro já está no seu acervo (" + (place(dup)) + ")." : "Encontrado. Informe onde ele está e salve.";
   }catch(e){ $("msg").textContent = "Sem conexão com a busca. Preencha o título à mão."; draft.isbn = isbn; }
 }
 
@@ -231,9 +263,12 @@ $("dlg").addEventListener("close", stopScan);
 $("save").onclick = () => {
   const title = $("title").value.trim();
   if (!title) { $("msg").textContent = "Informe o título."; return; }
-  if (!$("level").value) { $("msg").textContent = "Escolha o andar da prateleira."; return; }
-  if (!$("block").value) { $("msg").textContent = "Escolha o bloco."; return; }
-  const data = { ...draft, title, author: $("author").value.trim(), level: $("level").value, block: $("block").value };
+  if (fmt === "fisico" && !$("level").value) { $("msg").textContent = "Escolha o andar da prateleira."; return; }
+  if (fmt === "fisico" && !$("block").value) { $("msg").textContent = "Escolha o bloco."; return; }
+  const isRead = $("read").checked;
+  const data = { ...draft, title, author: $("author").value.trim(), format: fmt,
+    level: fmt === "fisico" ? $("level").value : "", block: fmt === "fisico" ? $("block").value : "",
+    read: isRead, note: isRead ? $("note").value.trim() : "" };
   delete data.where; delete data.side;
   if (editing) books = books.map(b => b.id === editing ? { ...b, ...data } : b);
   else books.push({ ...data, id: Date.now().toString(36) });
@@ -251,6 +286,8 @@ $("q").addEventListener("input", render);
 $("title").addEventListener("input", checkDup);
 $("level").innerHTML = '<option value="">Escolha o andar</option>' + Array.from({length: SHELF.length}, (_, i) => `<option value="${i+1}">${i+1}º andar${i ? "" : " (topo)"}</option>`).join("");
 $("level").onchange = () => fillBlocks();
+$("fmt").onclick = e => { const b = e.target.closest("button"); if (b) setFmt(b.dataset.f); };
+$("read").onchange = () => { $("noteBox").hidden = !$("read").checked; };
 
 $("exp").onclick = () => {
   const blob = new Blob([JSON.stringify(books, null, 1)], { type: "application/json" });
