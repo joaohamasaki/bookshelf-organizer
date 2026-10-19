@@ -292,14 +292,16 @@ async function fetchJson(url, ms = 7000){
 const SOURCES = [
   async i => { const j = await fetchJson("https://brasilapi.com.br/api/isbn/v1/" + i);
     return j && j.title ? { title: j.title + (j.subtitle ? ": " + j.subtitle : ""), author: (j.authors || []).join(", "), cover: j.cover_url || "" } : null; },
-  async i => { const j = await fetchJson("https://www.googleapis.com/books/v1/volumes?q=isbn:" + i);
+  async i => { const j = await fetchJson("https://www.googleapis.com/books/v1/volumes?country=BR&q=isbn:" + i);
     const v = j.items && j.items[0] && j.items[0].volumeInfo;
     return v ? { title: v.title + (v.subtitle ? ": " + v.subtitle : ""), author: (v.authors || []).join(", "),
       cover: v.imageLinks ? (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail || "") : "" } : null; },
   async i => { const j = await fetchJson("https://openlibrary.org/api/books?bibkeys=ISBN:" + i + "&format=json&jscmd=data");
     const v = j["ISBN:" + i];
     return v ? { title: v.title + (v.subtitle ? ": " + v.subtitle : ""), author: (v.authors || []).map(a => a.name).join(", "),
-      cover: v.cover ? (v.cover.medium || v.cover.small || "") : "" } : null; }
+      cover: v.cover ? (v.cover.medium || v.cover.small || "") : "" } : null; },
+  async i => { const j = await fetchJson("https://openlibrary.org/isbn/" + i + ".json");
+    return j && j.title ? { title: j.title + (j.subtitle ? ": " + j.subtitle : ""), author: "", cover: "https://covers.openlibrary.org/b/isbn/" + i + "-M.jpg" } : null; }
 ];
 
 async function lookup(isbn){
@@ -314,7 +316,7 @@ async function lookup(isbn){
     try{ found = await src(isbn); if (found) break; }catch(e){ failed++; }
   }
   if (!found) {
-    $("msg").textContent = failed === SOURCES.length ? "Sem conexão com a busca. Preencha o título à mão." : "Não achei esse ISBN nas bases de dados. Preencha o título e o autor à mão.";
+    $("msg").textContent = failed === SOURCES.length ? "Sem conexão com a busca (ISBN lido: " + isbn + "). Preencha o título à mão." : "Não achei o ISBN " + isbn + " nas bases de dados (versão 4). Preencha o título e o autor à mão.";
     return;
   }
   draft.title = found.title; draft.author = found.author;
